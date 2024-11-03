@@ -1,73 +1,89 @@
 import requests
 from bs4 import BeautifulSoup
 
-def szukaj():
-    nazwa_kategorii = input()
-    url = "https://pl.wikipedia.org/wiki/Kategoria:" + nazwa_kategorii.replace(' ', '_')
-    odpowiedz = requests.get(url)
+def search():
+    wiki_name = input()
+    url = "https://pl.wikipedia.org/wiki/Kategoria:" + wiki_name.replace(' ', '_')
+    response = requests.get(url)
 
-    if odpowiedz.status_code == 200:
-        zupa = BeautifulSoup(odpowiedz.text, "html.parser")
-        strony_div = zupa.find("div", id="mw-pages")
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, "html.parser")
+        pages = soup.find("div", id="mw-pages")
 
-        if strony_div:
-            artykuly = [
-                {"url": link["href"], "nazwa": link["title"]}
-                for link in strony_div.find_all("a") if "title" in link.attrs
+        if pages:
+            articles = [
+                {"url": link["href"], "name": link["title"]}
+                for link in pages.find_all("a") if "title" in link.attrs
             ]
 
-            for idx in range(2):
-                if idx < len(artykuly):
-                    artykul = artykuly[idx]
-                    pelny_url = "https://pl.wikipedia.org" + artykul["url"]
-                    odpowiedz_artykul = requests.get(pelny_url)
-                    zupa_artykul = BeautifulSoup(odpowiedz_artykul.text, "html.parser")
+            for idx in range(2):  # Przechodzenie przez pierwsze dwa artykuły
+                if idx < len(articles):
+                    article = articles[idx]
+                    full_url = "https://pl.wikipedia.org" + article["url"]
+                    article_response = requests.get(full_url)
+                    article_soup = BeautifulSoup(article_response.text, "html.parser")
 
-                    zawartosc = zupa_artykul.find('div', {'id': 'mw-content-text'})
-                    tytuly = []
-                    if zawartosc:
-                        znaczniki_a = zawartosc.select('a:not(.extiw)')
-                        tytuly = [znacznik.get('title') for znacznik in znaczniki_a if znacznik.get('title') and znacznik.get_text(strip=True)]
-                        tytuly = list(dict.fromkeys(tytuly))[:5]  # Usunięcie duplikatów i ograniczenie do 5
+                    content = article_soup.find('div', {'id': 'mw-content-text'})
+                    titles = []
+                    if content:
+                        anchor_tags = content.select('a:not(.extiw)')
+                        titles = [anchor.get('title') for anchor in anchor_tags if anchor.get('title') and anchor.get_text(strip=True)]
+                        titles = list(dict.fromkeys(titles))[:5]  # Usunięcie duplikatów i ograniczenie do 5
 
-                    div_tresc = zupa_artykul.find("div", {"class": "mw-parser-output"})
-                    url_obrazow = []
-                    if div_tresc:
-                        znaczniki_obrazow = div_tresc.find_all("img", src=True)
-                        url_obrazow = ["//upload.wikimedia.org" + obraz["src"] for obraz in znaczniki_obrazow[:3]]
+                    content_text_div = article_soup.find("div", {"class": "mw-parser-output"})
+                    image_urls = []
+                    if content_text_div:
+                        image_tags = content_text_div.find_all("img", src=True)
+                        image_urls = ["//upload.wikimedia.org" + img["src"] for img in image_tags[:3]]
 
-                    przypisy_div = zupa_artykul.find("div", {"class": "mw-references-wrap"})
-                    url_przypisow = []
-                    if przypisy_div:
-                        linki_przypisow = przypisy_div.find_all('a', class_='external text')
-                        for link in linki_przypisow:
-                            url_przypisow.append(link.get('href'))
-                            if len(url_przypisow) == 3:
+                    # Pobieranie linków z przypisów
+                    reference_urls = []
+                    references_div = article_soup.find("div", {"class": "mw-references-wrap"})
+                    if references_div:
+                        links = references_div.find_all('a', class_='external text')
+                        for link in links:
+                            reference_urls.append(link.get('href'))
+                            if len(reference_urls) == 3:
                                 break
 
-                    url_przypisow = [url.replace("&", "&amp;") for url in url_przypisow]
+                    # Pobieranie dodatkowych zewnętrznych linków z treści artykułu
+                    external_links = []
+                    external_anchor_tags = content_text_div.find_all('a', href=True)
+                    for tag in external_anchor_tags:
+                        href = tag['href']
+                        if href.startswith('http') and href not in reference_urls:
+                            external_links.append(href)
+                            if len(reference_urls) + len(external_links) >= 3:
+                                break
 
-                    div_kategorie = zupa_artykul.find("div", {"id": "mw-normal-catlinks"})
-                    nazwy_kategorii = []
-                    if div_kategorie:
-                        linki_kategorii = div_kategorie.find_all("a")
-                        nazwy_kategorii = [kategoria.get_text() for kategoria in linki_kategorii[1:4]]
+                    # Połączenie linków z przypisów i zewnętrznych
+                    reference_urls.extend(external_links)
+                    reference_urls = list(dict.fromkeys(reference_urls))[:3]  # Unikalne i ograniczenie do 3
 
-                    wynik_tytuly = " | ".join(tytuly)
-                    wynik_obrazy = " | ".join(url_obrazow)
-                    wynik_przypisy = " | ".join(url_przypisow)
-                    wynik_kategorie = " | ".join(nazwy_kategorii)
+                    reference_urls = [url.replace("&", "&amp;") for url in reference_urls]
 
-                    print(wynik_tytuly)
-                    print(wynik_obrazy)
-                    print(wynik_przypisy)
-                    print(wynik_kategorie)
+                    categories_div = article_soup.find("div", {"id": "mw-normal-catlinks"})
+                    category_names = []
+                    if categories_div:
+                        category_links = categories_div.find_all("a")
+                        category_names = [cat.get_text() for cat in category_links[1:4]]
+
+                    # Formatowanie danych wyjściowych
+                    output_titles = " | ".join(titles)
+                    output_images = " | ".join(image_urls)
+                    output_references = " | ".join(reference_urls)
+                    output_categories = " | ".join(category_names)
+
+                    print(output_titles)
+                    print(output_images)
+                    print(output_references)
+                    print(output_categories)
                 else:
                     print(f"Artykuł {idx + 1}: Informacje nie znalezione")
         else:
             print("Nie znaleziono stron")
     else:
-        print(f"Kod statusu: {odpowiedz.status_code}")
+        print(f"Kod statusu: {response.status_code}")
 
 if __name__ == "__main__":
-    szukaj()
+    search()
