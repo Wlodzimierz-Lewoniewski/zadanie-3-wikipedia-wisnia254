@@ -36,7 +36,7 @@ def search():
                         image_tags = content_text_div.find_all("img", src=True)
                         image_urls = ["//upload.wikimedia.org" + img["src"] for img in image_tags[:3]]
 
-                    # Pobieranie linków z przypisów
+                    # Pobieranie linków z przypisów i bibliografii
                     reference_urls = []
                     references_div = article_soup.find("div", {"class": "mw-references-wrap"})
                     if references_div:
@@ -46,20 +46,20 @@ def search():
                             if len(reference_urls) == 3:
                                 break
 
-                    # Pobieranie dodatkowych zewnętrznych linków z treści artykułu
-                    external_links = []
-                    external_anchor_tags = content_text_div.find_all('a', href=True)
-                    for tag in external_anchor_tags:
-                        href = tag['href']
-                        if href.startswith('http') and href not in reference_urls:
-                            external_links.append(href)
-                            if len(reference_urls) + len(external_links) >= 3:
-                                break
+                    # Pobieranie dodatkowych zewnętrznych linków z sekcji "Bibliografia" lub "Linki zewnętrzne"
+                    external_sections = article_soup.find_all('span', {'class': 'mw-headline'})
+                    for section in external_sections:
+                        if section.text.lower() in ['bibliografia', 'linki zewnętrzne']:
+                            parent = section.find_parent('h2').find_next_sibling('ul')
+                            if parent:
+                                for link in parent.find_all('a', href=True):
+                                    href = link['href']
+                                    if href.startswith('http') and href not in reference_urls:
+                                        reference_urls.append(href)
+                                    if len(reference_urls) == 3:
+                                        break
 
-                    # Połączenie linków z przypisów i zewnętrznych
-                    reference_urls.extend(external_links)
                     reference_urls = list(dict.fromkeys(reference_urls))[:3]  # Unikalne i ograniczenie do 3
-
                     reference_urls = [url.replace("&", "&amp;") for url in reference_urls]
 
                     categories_div = article_soup.find("div", {"id": "mw-normal-catlinks"})
