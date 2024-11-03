@@ -36,21 +36,18 @@ def szukaj():
                         tagi_obrazow = div_tresci.find_all("img", src=True)
                         adresy_obrazow = [img["src"] for img in tagi_obrazow[:3]]
 
-                    # Pobieranie odnośników tylko z sekcji referencyjnej i przypisów
                     odwolania_div = soup_artykul.find("ol", {"class": "references"})
                     adresy_odwolania = []
                     if odwolania_div:
                         linki_referencyjne = odwolania_div.find_all('a', class_='external text')
                         adresy_odwolania.extend([link.get('href') for link in linki_referencyjne if link.get('href')])
 
-                    # Pobieranie odnośników z przypisów na końcu artykułu (opcjonalne)
                     przypisy_div = soup_artykul.find_all("li", {"id": lambda x: x and x.startswith("cite")})
                     for przypis in przypisy_div:
                         link = przypis.find('a', class_='external text')
                         if link and link.get('href'):
                             adresy_odwolania.append(link.get('href'))
 
-                    # Ograniczenie do 3 odnośników i unikanie duplikatów
                     adresy_odwolania = list(dict.fromkeys(adresy_odwolania))[:3]
                     adresy_odwolania = [url.replace("&", "&amp;") for url in adresy_odwolania]
 
