@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 
 def szukaj():
-    nazwa_kategorii = input("Podaj nazwę kategorii Wikipedii: ")
+    nazwa_kategorii = input()
     url = "https://pl.wikipedia.org/wiki/Kategoria:" + nazwa_kategorii.replace(' ', '_')
     odpowiedz = requests.get(url)
 
@@ -28,13 +28,13 @@ def szukaj():
                     if zawartosc:
                         znaczniki_a = zawartosc.select('a:not(.extiw)')
                         tytuly = [znacznik.get('title') for znacznik in znaczniki_a if znacznik.get('title') and znacznik.get_text(strip=True)]
-                        tytuly = tytuly[:5]
+                        tytuly = list(dict.fromkeys(tytuly))[:5]  # Usunięcie duplikatów i ograniczenie do 5
 
                     div_tresc = zupa_artykul.find("div", {"class": "mw-parser-output"})
                     url_obrazow = []
                     if div_tresc:
                         znaczniki_obrazow = div_tresc.find_all("img", src=True)
-                        url_obrazow = [obraz["src"] for obraz in znaczniki_obrazow[:3]]
+                        url_obrazow = ["//upload.wikimedia.org" + obraz["src"] for obraz in znaczniki_obrazow[:3]]
 
                     przypisy_div = zupa_artykul.find("div", {"class": "mw-references-wrap"})
                     url_przypisow = []
